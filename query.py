@@ -94,8 +94,10 @@ class QueryConnection:
         """
         loop = asyncio.get_event_loop()
         future = loop.create_future()
-        transport, protocol = await loop.create_datagram_endpoint(lambda: __QueryProtocol__(packet, future), remote_addr=(self.ip,self.port))
-        await future
+        transport, protocol = await loop.create_datagram_endpoint(lambda: __QueryProtocol__(packet, future), remote_addr=(self.ip,self.port)) # Start the Protocol
+        done, pending = await asyncio.wait(future,timeout=30) # Wait for response; if none after 30 seconds, cancel
+        if len(pending > 0): future.cancel()
+
         result : bytes = protocol.result
         return result
 
@@ -106,7 +108,9 @@ class QueryConnection:
         loop = asyncio.get_event_loop()
         future : asyncio.Future = loop.create_future()
         transport, protocol = await loop.create_datagram_endpoint(lambda: __QueryProtocol__(self.sessionId,False,future), remote_addr=(self.ip,self.port))
-        result = await future
+        done, pending = await asyncio.wait(future,timeout=30) # Wait for response; if none after 30 seconds, cancel
+        if len(pending > 0): future.cancel()
+        result = protocol.result
         
         logging.debug(f"Base Stat Response: {result}") 
         
@@ -145,7 +149,9 @@ class QueryConnection:
         loop = asyncio.get_event_loop()
         future : asyncio.Future = loop.create_future()
         transport, protocol = await loop.create_datagram_endpoint(lambda: __QueryProtocol__(self.sessionId,True,future), remote_addr=(self.ip,self.port))
-        result = await future
+        done, pending = await asyncio.wait(future,timeout=30) # Wait for response; if none after 30 seconds, cancel
+        if len(pending > 0): future.cancel()
+        result = protocol.result
 
         logging.debug(f"Full Stat Response: {result}")
 
