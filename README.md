@@ -1,8 +1,8 @@
 # mcconnect
-Provides libraries that aid in interacting with a Minecraft server via Python code
+Provides modules that aid in interacting with a Minecraft server via Python code
 
 ## query
-This library implements the Minecraft Query protocol.
+This module implements the Minecraft Query protocol.
 It contains one class by the name `QueryConnection`.
 This class needs an IP and can get a custom port at initialisation. The object can then be used to request information about the server specified by IP and port.
 _Note: IP means something like 127.0.0.1, not google.com_
@@ -30,7 +30,7 @@ The Full Stat meanwhile provides some more information like:
 The "players" property is a list of strings.
 
 ## connect
-This library provides the ability to connect to a external host and launch a server on it.
+This module provides the ability to connect to a external host and launch a server on it.
 At creation it requires 
   + a username and password for the ssh session established,
   + a command which will start the server,
