@@ -4,6 +4,7 @@ For information on how this protocol works, visit https://wwww.wiki.vg/Query (no
 """
 
 import asyncio, random, logging
+from mcconnect.errors import *
 
 CHALLENGE_REQ_TYPE = 0x09
 STAT_REQ_TYPE      = 0x00

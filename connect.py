@@ -1,16 +1,5 @@
 import asyncssh, asyncio, subprocess, logging
-
-class WakeError(Exception):
-    """Raised when an error occurs while trying to wake the host"""
-    pass
-
-class ConnectionError(Exception):
-    """Raised when the application can't connect to the host"""
-    pass
-
-class CommandError(Exception):
-    """Raised when the application can't send a command to the host"""
-    pass
+from mcconnect.errors import *
 
 class Connection:
     """This class can be used to establish a connection to a host machine and launch a Minecraft Server (or any server actually) on it.\n
@@ -19,7 +8,7 @@ class Connection:
     The wakeCommand argument needs to contain a command that by some means causes the host to boot up and then waits until that process is completed. If it completed successfully, it should output exit state 0, if not some other value.\n
     If provided, the pingCommand needs to be a command that checks if the host is awake and returns exit code 0 if it is.
     """
-    def __init__(self,hostIP : str,username : str, password : str,launchCommand : str,wakeCommand : str,shutdownCommand : str,*,queryPort : int,port : int = 22,disableHostKeyChecking=False,pingCommand = "ping {ip} -c 1"):
+    def __init__(self,hostIP : str,username : str, password : str,launchCommand : str,wakeCommand : str,shutdownCommand : str,*,port : int = 22,disableHostKeyChecking=False,pingCommand = "ping {ip} -c 1"):
         self.sshAddress = (hostIP,port)
         self.wakeCommand = wakeCommand
         self.shutdownCommand = shutdownCommand
@@ -31,8 +20,6 @@ class Connection:
 
         self.sshConn : asyncssh.SSHClientConnection = None
         self.serverProcess : asyncssh.SSHClientProcess = None
-
-        self.queryPort = queryPort
 
         self.PING_CMD = pingCommand
         pass
