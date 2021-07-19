@@ -29,6 +29,10 @@ The Full Stat meanwhile provides some more information like:
 
 The "players" property is a list of strings.
 
+## rcon
+Rcon is short for "Remote Console". This protocol can be used to send commands remotely to a Minecraft Server.
+To use this module, you only need to create a new `Rconnection` object with the ip of the server, its port, and a password (, which can be set in `server.properties` on the host). The coroutine `Rconnection.start()` will use this information to connect the session. Via `Rconnection.command(string)` you can then enter commands as you wish.
+
 ## connect
 This module provides the ability to connect to a external host and launch a server on it.
 At creation it requires 
