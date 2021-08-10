@@ -64,3 +64,7 @@ This function can send a command to the server (if it is connected). Should the 
 ### processWatcher
 Currently, this function will print out any data it gets from a `asyncssh.SSHClientProcess` such as the one provided by the `start` function.
 The process needs to be provided as an argument.
+## stop
+Stops the server. Raises ConnectionError if no process exists and CommandError if the process is already closed.
+## shutdown
+Shuts down the host. Opposite of Connection.start
