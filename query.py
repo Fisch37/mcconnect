@@ -4,16 +4,18 @@ For information on how this protocol works, visit https://wwww.wiki.vg/Query (no
 """
 
 import asyncio, random, logging
-from mcconnect.errors import *
+if __name__!="__main__": from mcconnect.errors import *
+else: from errors import *
 
 CHALLENGE_REQ_TYPE = 0x09
 STAT_REQ_TYPE      = 0x00
 
-class __QueryProtocol__:
+class __QueryProtocol__(asyncio.DatagramProtocol):
     """The asyncio.BaseProtocol adaptation for the QueryConnection class.\n
     This shouldn't be initialised outside of the QueryConnection.
     """
-    def __init__(self, sessionId : int, isFullStat : bool,conv_finished : asyncio.Future):
+    def __init__(self, sessionId : int, isFullStat : bool,conv_finished : asyncio.Future, addr : tuple[str,int]):
+        super().__init__()
         self.sessionId  : int  = sessionId
         self.isFullStat : bool = isFullStat
         self.challengeToken : int = None
@@ -21,14 +23,17 @@ class __QueryProtocol__:
 
         self.transport = None
         self.conv_finished : asyncio.Future = conv_finished
+
+        self.addr = addr
         pass
-    def connection_made(self,transport):
+    def connection_made(self,transport : asyncio.DatagramTransport):
         self.transport = transport # Saves the transport that was created to be used later
-        transport.sendto(createQueryPacket(self.sessionId,CHALLENGE_REQ_TYPE,b"")) # Send a challenge token request
+        transport.sendto(createQueryPacket(self.sessionId,CHALLENGE_REQ_TYPE,b""),self.addr) # Send a challenge token request
+        
         pass
 
     def datagram_received(self,data,addr):
-        logging.info(f"Data received: {data}")
+        logging.debug(f"Data received: {data}")
         respType = data[0] # Get type in the response
         sessionId = int.from_bytes(data[1:5],"big") # Get & Decode the session Id
         if sessionId != self.sessionId: # Protect against potential leaks from other sources
@@ -40,15 +45,16 @@ class __QueryProtocol__:
             requestPayload = self.challengeToken.to_bytes(4,"big")
             requestPayload += b"\x00"*4 if self.isFullStat else b"" # Add required padding if a full stat is wanted
 
-            self.transport.sendto(createQueryPacket(self.sessionId,STAT_REQ_TYPE,requestPayload)) # Send the query
+            self.transport.sendto(createQueryPacket(self.sessionId,STAT_REQ_TYPE,requestPayload),self.addr) # Send the query
             pass
         else: # If result from query is received
             self.result = data
             self.conv_finished.set_result(data)
         pass
 
-    def error_received(self,data,addr):
+    def error_received(self,data):
         logging.error(f"Error with UDP Connection: {data}")
+        self.conv_finished.set_exception(ConnectionError("Could not connect to the Server specified."))
         pass
 
     def connection_lost(self,exc):
@@ -74,10 +80,12 @@ class QueryConnection:
     """Handles Query Connections to a Minecraft Server.\n
     If you host a minecraft server, you will need to set enable-query = true in your server.properties.
     """
-    def __init__(self,ip,port=25565):
+    def __init__(self,ip,port=25565, timeout : int = 30):
         self.ip = ip
         self.port = port
         self.sessionId = createSessionId()
+
+        self.timeout = timeout
         pass
 
     def newSessionId(self):
@@ -89,18 +97,20 @@ class QueryConnection:
         return sessionId
         pass
 
-    async def sendData(self, packet : bytes):
-        """Sends raw data to the server\n
-        Note: This should not be used manually
-        """
-        loop = asyncio.get_event_loop()
-        future = loop.create_future()
-        transport, protocol = await loop.create_datagram_endpoint(lambda: __QueryProtocol__(packet, future), remote_addr=(self.ip,self.port)) # Start the Protocol
-        done, pending = await asyncio.wait(future,timeout=30) # Wait for response; if none after 30 seconds, cancel
-        if len(pending > 0): future.cancel()
+    # Deprecated, doesn't work with new __QueryProtocol__
+    # async def sendData(self, packet : bytes):
+    #     """Sends raw data to the server\n
+    #     Note: This should not be used manually
+    #     """
+    #     loop = asyncio.get_event_loop()
+    #     future : asyncio.Future = loop.create_future()
+    #     transport, protocol = await loop.create_datagram_endpoint(lambda: __QueryProtocol__(packet, future), remote_addr=(self.ip,self.port)) # Start the Protocol
+    #     done, pending = await asyncio.wait(future,timeout=30) # Wait for response; if none after 30 seconds, cancel
+    #     if len(pending > 0): future.cancel()
 
-        result : bytes = protocol.result
-        return result
+    #     result : bytes = protocol.result
+    #     transport.close()
+    #     return result
 
     async def basicStat(self):
         """Retrieves the basic statistics of a server.\n
@@ -108,10 +118,11 @@ class QueryConnection:
         """
         loop = asyncio.get_event_loop()
         future : asyncio.Future = loop.create_future()
-        transport, protocol = await loop.create_datagram_endpoint(lambda: __QueryProtocol__(self.sessionId,False,future), remote_addr=(self.ip,self.port))
-        done, pending = await asyncio.wait(future,timeout=30) # Wait for response; if none after 30 seconds, cancel
-        if len(pending > 0): future.cancel()
+        transport, protocol = await loop.create_datagram_endpoint(lambda: __QueryProtocol__(self.sessionId,False,future,(self.ip,self.port)), remote_addr=(self.ip,self.port))
+        done, pending = await asyncio.wait([future],timeout=self.timeout) # Wait for response; if none after 30 seconds, cancel
+        if len(pending) > 0: future.set_exception(ConnectionError("Could not connect to the server"))
         result = protocol.result
+        future.result()
         
         logging.debug(f"Base Stat Response: {result}") 
         
@@ -150,7 +161,7 @@ class QueryConnection:
         loop = asyncio.get_event_loop()
         future : asyncio.Future = loop.create_future()
         transport, protocol = await loop.create_datagram_endpoint(lambda: __QueryProtocol__(self.sessionId,True,future), remote_addr=(self.ip,self.port))
-        done, pending = await asyncio.wait(future,timeout=30) # Wait for response; if none after 30 seconds, cancel
+        done, pending = await asyncio.wait(future,timeout=self.timeout) # Wait for response; if none after 30 seconds, cancel
         if len(pending > 0): future.cancel()
         result = protocol.result
 
@@ -190,4 +201,15 @@ class QueryConnection:
 
         return interpreted
         pass
+    pass
+
+async def main():
+    logging.basicConfig(level=logging.INFO)
+    IP = "127.0.0.1"
+    conn = QueryConnection("192.168.0.41")
+    print("Basic stat:",await conn.basicStat())
+    pass
+
+if __name__=="__main__":
+    asyncio.run(main())
     pass

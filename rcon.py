@@ -1,5 +1,5 @@
 import asyncio, random
-from errors import *
+from mcconnect.errors import *
 
 MAX_CS_LENGTH = 1446
 MAX_SC_LENGTH = 4096
